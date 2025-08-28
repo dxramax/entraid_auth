@@ -1,213 +1,326 @@
-use actix_web::{web, App, HttpServer, HttpResponse, Result, middleware::Logger, HttpRequest};
+use actix_web::{web, App, HttpServer, HttpResponse, Result, middleware::Logger};
 use actix_session::{Session, SessionMiddleware, storage::CookieSessionStore};
 use actix_web::cookie::Key;
 use serde::{Deserialize, Serialize};
+use oauth2::{
+    AuthUrl, ClientId, ClientSecret, CsrfToken, RedirectUrl, Scope, TokenUrl,
+    basic::BasicClient, AuthorizationCode, TokenResponse, reqwest::async_http_client,
+};
 use reqwest::Client;
-use std::collections::HashMap;
 use std::env;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct UserInfo {
-    id: String,
+    #[serde(rename = "displayName")]
     name: String,
+    #[serde(rename = "userPrincipalName")]  
     email: String,
+    #[serde(rename = "id")]
+    id: String,
+    #[serde(rename = "profilePhotoUrl")]
+    photo_url: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-struct AuthResponse {
-    authenticated: bool,
-    user: Option<UserInfo>,
+#[derive(Debug, Deserialize)]
+struct AuthCallbackQuery {
+    code: Option<String>,
+    state: Option<String>,
+    error: Option<String>,
 }
 
 struct AppState {
-    auth_service_url: String,
+    oauth_client: BasicClient,
     http_client: Client,
 }
 
-async fn home(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpResponse> {
-    // Check if user came back from auth service
-    let query_params: HashMap<String, String> = web::Query::<HashMap<String, String>>::from_query(req.query_string())
-        .map(|q| q.into_inner())
-        .unwrap_or_else(|_| HashMap::new());
+async fn home(session: Session) -> Result<HttpResponse> {
+    let user_info: Option<UserInfo> = session.get("user").unwrap_or(None);
     
-    let auth_success = query_params.get("auth").map(|s| s == "success").unwrap_or(false);
-    let session_id = query_params.get("session").cloned().unwrap_or_default();
-    
-    log::info!("Home page requested. Auth success: {}, Session ID: {}", auth_success, session_id);
-
-    let html = r#"
+    let html = match user_info {
+        Some(user) => {
+            format!(r#"
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Rust + Node.js Azure Entra ID Login</title>
+    <title>🔐 PrimeGate Portal - Authenticated</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 50px; background: #f5f5f5; }
-        .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .header { text-align: center; margin-bottom: 30px; }
-        .rust-badge { background: #ce422b; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; }
-        .nodejs-badge { background: #68a063; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; }
-        .button { background: #0078d4; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block; margin: 10px 0; transition: background 0.3s; }
-        .button:hover { background: #106ebe; }
-        .user-info { background: #e8f4f8; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #0078d4; }
-        .architecture { background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; }
-        .status-indicator { padding: 10px; border-radius: 4px; margin: 10px 0; }
-        .authenticated { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-        .not-authenticated { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        body {{ 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+            margin: 0; padding: 40px; 
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            min-height: 100vh; display: flex; align-items: center; justify-content: center;
+        }}
+        .container {{ 
+            max-width: 600px; background: white; padding: 50px; 
+            border-radius: 16px; box-shadow: 0 30px 60px rgba(0,0,0,0.15);
+            text-align: center;
+        }}
+        .profile-section {{
+            background: #e8f5e8; padding: 30px; border-radius: 12px; 
+            margin: 30px 0; border-left: 6px solid #28a745;
+        }}
+        .profile-image {{
+            width: 80px; height: 80px; border-radius: 50%; 
+            margin: 0 auto 20px; display: block;
+            border: 4px solid #28a745;
+        }}
+        .welcome-text {{ font-size: 1.5em; color: #155724; margin-bottom: 20px; }}
+        .user-details {{ text-align: left; margin: 20px 0; }}
+        .user-details strong {{ color: #155724; }}
+        .button {{ 
+            background: linear-gradient(45deg, #dc3545, #c82333); 
+            color: white; padding: 15px 30px; text-decoration: none; 
+            border-radius: 8px; display: inline-block; margin: 20px 0;
+            font-weight: 600; font-size: 16px; transition: all 0.3s ease;
+        }}
+        .button:hover {{ transform: translateY(-2px); box-shadow: 0 8px 25px rgba(220, 53, 69, 0.3); }}
+        .rust-badge {{ 
+            background: linear-gradient(45deg, #ce422b, #ff6b35);
+            color: white; padding: 8px 20px; border-radius: 25px; 
+            font-size: 14px; font-weight: 600; display: inline-block; margin: 10px;
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🛡️ PrimeGate Portal</h1>
+        <div class="rust-badge">🦀 100% RUST POWERED</div>
+        
+        <div class="profile-section">
+            {}
+            <div class="welcome-text">✅ Welcome back, {}!</div>
+            <div class="user-details">
+                <p><strong>Display Name:</strong> {}</p>
+                <p><strong>Email:</strong> {}</p>
+                <p><strong>User ID:</strong> {}</p>
+            </div>
+        </div>
+        
+        <a href="/auth/logout" class="button">🚪 Sign Out</a>
+        
+        <div style="margin-top: 30px; color: #666; font-size: 14px;">
+            <p>🔐 Authenticated via Azure Entra ID</p>
+            <p>🦀 Pure Rust Backend Authentication</p>
+        </div>
+    </div>
+</body>
+</html>
+            "#, 
+            user.photo_url.as_ref().map_or(String::new(), |url| 
+                format!(r#"<img src="{}" class="profile-image" alt="Profile Photo" onerror="this.style.display='none'">"#, url)
+            ),
+            user.name.split('@').next().unwrap_or(&user.name),
+            user.name,
+            user.email,
+            user.id
+            )
+        },
+        None => r#"
+<!DOCTYPE html>
+<html>
+<head>
+    <title>🔐 PrimeGate Portal</title>
+    <style>
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+            margin: 0; padding: 40px; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh; display: flex; align-items: center; justify-content: center;
+        }
+        .container { 
+            max-width: 600px; background: white; padding: 50px; 
+            border-radius: 16px; box-shadow: 0 30px 60px rgba(0,0,0,0.15);
+            text-align: center;
+        }
+        .header { margin-bottom: 40px; }
+        .header h1 { color: #333; margin-bottom: 15px; font-weight: 700; font-size: 2.5em; }
+        .rust-badge { 
+            background: linear-gradient(45deg, #ce422b, #ff6b35);
+            color: white; padding: 8px 20px; border-radius: 25px; 
+            font-size: 14px; font-weight: 600; display: inline-block; margin: 10px;
+        }
+        .security-badge { 
+            background: linear-gradient(45deg, #28a745, #20c997);
+            color: white; padding: 8px 20px; border-radius: 25px; 
+            font-size: 14px; font-weight: 600; display: inline-block; margin: 10px;
+        }
+        .login-section { 
+            background: #f8f9fa; padding: 40px; border-radius: 12px; 
+            margin: 30px 0; border-left: 6px solid #0078d4;
+        }
+        .button { 
+            background: linear-gradient(45deg, #0078d4, #106ebe); 
+            color: white; padding: 20px 40px; text-decoration: none; 
+            border-radius: 8px; display: inline-block; margin: 20px 0;
+            font-weight: 600; font-size: 18px; transition: all 0.3s ease;
+        }
+        .button:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(16, 110, 190, 0.3); }
+        .features {
+            background: #e8f4f8; padding: 20px; border-radius: 8px; margin: 20px 0;
+        }
+        .feature-item { margin: 10px 0; font-weight: 500; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>🚀 High-Performance Authentication</h1>
-            <p><span class="rust-badge">RUST SERVER</span> + <span class="nodejs-badge">NODE.JS AUTH</span></p>
-            <p>Fast Rust backend with Node.js handling Azure Entra ID authentication</p>
+            <h1>🛡️ PrimeGate Portal</h1>
+            <div>
+                <span class="rust-badge">🦀 RUST POWERED</span>
+                <span class="security-badge">🔒 SECURE AUTH</span>
+            </div>
+            <p>Enterprise-grade authentication with Azure Entra ID</p>
         </div>
         
-        <div class="architecture">
-            <h3>🏗️ Architecture</h3>
-            <p><strong>Rust Server (Main):</strong> Handles all application logic, API endpoints, and business logic for maximum performance</p>
-            <p><strong>Node.js Auth Service:</strong> Dedicated authentication service that communicates with Azure Entra ID</p>
-            <p><strong>Communication:</strong> Rust server makes HTTP API calls to Node.js auth service</p>
-        </div>
-
-        <div id="status" class="status-indicator">
-            <p>🔍 Checking authentication status...</p>
+        <div class="login-section">
+            <h2>🔐 Ready to Sign In</h2>
+            <p>Click below to authenticate with your Microsoft account</p>
+            <a href="/auth/login" class="button">🔐 Sign In with Microsoft</a>
         </div>
         
-        <div style="text-align: center;">
-            <a href="/auth/login" class="button">🔐 Login with Azure Entra ID</a>
+        <div class="features">
+            <h3>🛡️ Security Features</h3>
+            <div class="feature-item">🔒 Pure Rust backend (no Node.js)</div>
+            <div class="feature-item">🛡️ Server-side OAuth2 flow</div>
+            <div class="feature-item">🔐 Azure Entra ID integration</div>
+            <div class="feature-item">⚡ High-performance authentication</div>
+            <div class="feature-item">🔑 Secure session management</div>
         </div>
     </div>
-
-    <script>
-        // Check authentication status
-        fetch('/auth/status')
-            .then(response => response.json())
-            .then(data => {
-                const statusDiv = document.getElementById('status');
-                if (data.authenticated && data.user) {
-                    statusDiv.className = 'status-indicator authenticated';
-                    statusDiv.innerHTML = `
-                        <div class="user-info">
-                            <h3>✅ Authentication Successful!</h3>
-                            <p><strong>Name:</strong> ${data.user.name}</p>
-                            <p><strong>Email:</strong> ${data.user.email}</p>
-                            <p><strong>ID:</strong> ${data.user.id}</p>
-                            <a href="/auth/logout" class="button">🚪 Logout</a>
-                        </div>
-                    `;
-                } else {
-                    statusDiv.className = 'status-indicator not-authenticated';
-                    statusDiv.innerHTML = '<p>❌ Not authenticated</p>';
-                }
-            })
-            .catch(error => {
-                console.error('Error checking auth status:', error);
-                const statusDiv = document.getElementById('status');
-                statusDiv.className = 'status-indicator not-authenticated';
-                statusDiv.innerHTML = '<p>❌ Error checking authentication status</p>';
-            });
-    </script>
 </body>
 </html>
-    "#;
-    
+        "#.to_string()
+    };
+
     Ok(HttpResponse::Ok().content_type("text/html").body(html))
 }
 
-async fn auth_login(data: web::Data<AppState>) -> Result<HttpResponse> {
-    log::info!("Auth login requested, redirecting to Node.js auth service");
-    let auth_url = format!("{}/auth/login", data.auth_service_url);
-    log::info!("Redirecting to: {}", auth_url);
-    
+async fn auth_login(data: web::Data<AppState>, session: Session) -> Result<HttpResponse> {
+    let (auth_url, csrf_token) = data.oauth_client
+        .authorize_url(CsrfToken::new_random)
+        .add_scope(Scope::new("https://graph.microsoft.com/User.Read".to_string()))
+        .add_scope(Scope::new("openid".to_string()))
+        .add_scope(Scope::new("profile".to_string()))
+        .add_scope(Scope::new("email".to_string()))
+        .url();
+
+    // Store CSRF token in session
+    session.insert("csrf_token", csrf_token.secret().clone()).unwrap();
+
+    log::info!("Redirecting to Azure AD: {}", auth_url);
+
     Ok(HttpResponse::Found()
-        .insert_header(("Location", auth_url))
+        .insert_header(("Location", auth_url.to_string()))
         .finish())
 }
 
-async fn auth_status(data: web::Data<AppState>, session: Session) -> Result<HttpResponse> {
-    log::info!("Checking authentication status with Node.js auth service");
-    
-    // Get session ID if available
-    let session_id = session.get::<String>("session_id").unwrap_or(None);
-    
-    let status_url = if let Some(sid) = session_id {
-        format!("{}/auth/status/{}", data.auth_service_url, sid)
-    } else {
-        format!("{}/auth/status", data.auth_service_url)
+async fn auth_callback(
+    query: web::Query<AuthCallbackQuery>,
+    data: web::Data<AppState>,
+    session: Session,
+) -> Result<HttpResponse> {
+    if let Some(error) = &query.error {
+        log::error!("OAuth error: {}", error);
+        return Ok(HttpResponse::BadRequest().body(format!("Authentication error: {}", error)));
+    }
+
+    let code = match &query.code {
+        Some(code) => code,
+        None => return Ok(HttpResponse::BadRequest().body("Missing authorization code")),
     };
-    
-    log::info!("Calling auth service: {}", status_url);
-    
-    match data.http_client.get(&status_url).send().await {
-        Ok(response) => {
-            if response.status().is_success() {
-                match response.json::<AuthResponse>().await {
-                    Ok(auth_response) => {
-                        log::info!("Auth service response: authenticated={}", auth_response.authenticated);
-                        if auth_response.authenticated {
-                            // Store user info in Rust session for caching
-                            if let Some(user) = &auth_response.user {
-                                let _ = session.insert("user", user.clone());
-                                let _ = session.insert("authenticated", true);
-                                log::info!("User info cached in Rust session: {}", user.name);
-                            }
-                        }
-                        Ok(HttpResponse::Ok().json(auth_response))
-                    },
-                    Err(e) => {
-                        log::error!("Failed to parse auth service response: {}", e);
-                        Ok(HttpResponse::Ok().json(AuthResponse { authenticated: false, user: None }))
-                    }
-                }
-            } else {
-                log::warn!("Auth service returned status: {}", response.status());
-                Ok(HttpResponse::Ok().json(AuthResponse { authenticated: false, user: None }))
+
+    // Verify CSRF token
+    let stored_csrf_token: Option<String> = session.get("csrf_token").unwrap_or(None);
+    if stored_csrf_token != query.state {
+        log::error!("CSRF token mismatch");
+        return Ok(HttpResponse::BadRequest().body("CSRF token mismatch"));
+    }
+
+    // Exchange authorization code for access token
+    let token_result = data.oauth_client
+        .exchange_code(AuthorizationCode::new(code.clone()))
+        .request_async(async_http_client)
+        .await;
+
+    let token = match token_result {
+        Ok(token) => token,
+        Err(e) => {
+            log::error!("Token exchange failed: {}", e);
+            return Ok(HttpResponse::InternalServerError().body("Token exchange failed"));
+        }
+    };
+
+    // Get user info from Microsoft Graph
+    let access_token = token.access_token().secret();
+    match get_user_info(&data.http_client, access_token).await {
+        Ok(mut user_info) => {
+            // Try to get profile photo
+            if let Ok(photo_url) = get_user_photo(&data.http_client, access_token).await {
+                user_info.photo_url = Some(photo_url);
             }
+            
+            session.insert("user", &user_info).unwrap();
+            session.insert("authenticated", true).unwrap();
+            
+            log::info!("User authenticated: {}", user_info.name);
+            
+            Ok(HttpResponse::Found()
+                .insert_header(("Location", "/"))
+                .finish())
         },
         Err(e) => {
-            log::error!("Failed to contact auth service: {}", e);
-            
-            // Fallback to local session if auth service is unavailable
-            if let Ok(Some(user)) = session.get::<UserInfo>("user") {
-                if session.get::<bool>("authenticated").unwrap_or(None).unwrap_or(false) {
-                    log::info!("Using cached session data");
-                    return Ok(HttpResponse::Ok().json(AuthResponse {
-                        authenticated: true,
-                        user: Some(user)
-                    }));
-                }
-            }
-            
-            Ok(HttpResponse::Ok().json(AuthResponse { authenticated: false, user: None }))
+            log::error!("Failed to get user info: {}", e);
+            Ok(HttpResponse::InternalServerError().body("Failed to get user information"))
         }
     }
 }
 
-async fn auth_logout(data: web::Data<AppState>, session: Session) -> Result<HttpResponse> {
-    log::info!("Logout requested");
-    
-    // Clear local session
-    session.clear();
-    
-    // Call auth service logout
-    let logout_url = format!("{}/auth/logout", data.auth_service_url);
-    if let Err(e) = data.http_client.post(&logout_url).send().await {
-        log::warn!("Failed to notify auth service of logout: {}", e);
+async fn get_user_info(client: &Client, access_token: &str) -> Result<UserInfo, reqwest::Error> {
+    let response = client
+        .get("https://graph.microsoft.com/v1.0/me")
+        .header("Authorization", format!("Bearer {}", access_token))
+        .send()
+        .await?;
+
+    let user_info = response.json::<UserInfo>().await?;
+    Ok(user_info)
+}
+
+async fn get_user_photo(client: &Client, access_token: &str) -> Result<String, reqwest::Error> {
+    // First check if user has a photo
+    let response = client
+        .get("https://graph.microsoft.com/v1.0/me/photo/$value")
+        .header("Authorization", format!("Bearer {}", access_token))
+        .send()
+        .await?;
+
+    if response.status().is_success() {
+        let photo_bytes = response.bytes().await?;
+        use base64::Engine;
+        let base64_photo = base64::engine::general_purpose::STANDARD.encode(&photo_bytes);
+        Ok(format!("data:image/jpeg;base64,{}", base64_photo))
+    } else {
+        // Return a default avatar or empty string if no photo
+        Err(reqwest::Error::from(response.error_for_status().unwrap_err()))
     }
+}
+
+async fn auth_logout(session: Session) -> Result<HttpResponse> {
+    session.clear();
+    log::info!("User logged out");
     
-    log::info!("User logged out successfully");
     Ok(HttpResponse::Found()
         .insert_header(("Location", "/"))
         .finish())
 }
 
-// Health check endpoint for the Rust server
 async fn health() -> Result<HttpResponse> {
     Ok(HttpResponse::Ok().json(serde_json::json!({
-        "status": "OK",
-        "service": "Rust Main Server",
-        "version": "1.0.0"
+        "status": "healthy",
+        "service": "PrimeGate Auth Portal",
+        "version": "1.0.0",
+        "auth": "Pure Rust + Azure Entra ID",
+        "runtime": "100% Rust"
     })))
 }
 
@@ -216,35 +329,52 @@ async fn main() -> std::io::Result<()> {
     env_logger::init();
 
     let port = env::var("PORT").unwrap_or_else(|_| "8080".to_string());
-    let auth_service_url = env::var("AUTH_SERVICE_URL")
-        .unwrap_or_else(|_| "http://localhost:3001".to_string());
+    let tenant_id = env::var("TENANT_ID").unwrap_or_else(|_| "aad1209c-29cb-495b-8576-4ae795a8e989".to_string());
+    let client_id = env::var("CLIENT_ID").unwrap_or_else(|_| "ad09a2c4-7847-43d0-b0a2-15795df43203".to_string());
+    let client_secret = env::var("CLIENT_SECRET").expect("CLIENT_SECRET environment variable is required");
     
-    log::info!("🚀 Starting Rust server on port {}", port);
-    log::info!("🔗 Auth service URL: {}", auth_service_url);
+    // Determine the correct redirect URI based on environment
+    let redirect_uri = env::var("REDIRECT_URI").unwrap_or_else(|_| {
+        if env::var("WEBSITE_HOSTNAME").is_ok() {
+            // Running on Azure Container Apps
+            "https://primegate-auth-portal.delightfulfield-bccc7020.uksouth.azurecontainerapps.io/auth/callback".to_string()
+        } else {
+            // Running locally
+            format!("http://localhost:{}/auth/callback", port)
+        }
+    });
+
+    log::info!("🚀 Starting PrimeGate Portal on port {}", port);
+    log::info!("🔗 Redirect URI: {}", redirect_uri);
+
+    // Configure OAuth2 client
+    let auth_url = AuthUrl::new(format!(
+        "https://login.microsoftonline.com/{}/oauth2/v2.0/authorize",
+        tenant_id
+    )).expect("Invalid authorization endpoint URL");
+
+    let token_url = TokenUrl::new(format!(
+        "https://login.microsoftonline.com/{}/oauth2/v2.0/token",
+        tenant_id
+    )).expect("Invalid token endpoint URL");
+
+    let oauth_client = BasicClient::new(
+        ClientId::new(client_id),
+        Some(ClientSecret::new(client_secret)),
+        auth_url,
+        Some(token_url),
+    )
+    .set_redirect_uri(RedirectUrl::new(redirect_uri).expect("Invalid redirect URL"));
 
     let secret_key = Key::generate();
     let http_client = Client::new();
 
     let app_state = web::Data::new(AppState {
-        auth_service_url,
+        oauth_client,
         http_client,
     });
 
-    // Test connection to auth service
-    let test_url = format!("{}/health", app_state.auth_service_url);
-    match reqwest::get(&test_url).await {
-        Ok(response) => {
-            if response.status().is_success() {
-                log::info!("✅ Successfully connected to auth service");
-            } else {
-                log::warn!("⚠️ Auth service responded with status: {}", response.status());
-            }
-        },
-        Err(e) => {
-            log::error!("❌ Failed to connect to auth service: {}", e);
-            log::warn!("🔧 Make sure Node.js auth service is running on {}", app_state.auth_service_url);
-        }
-    }
+    log::info!("✅ PrimeGate Portal configured with Azure Entra ID");
 
     HttpServer::new(move || {
         App::new()
@@ -259,7 +389,7 @@ async fn main() -> std::io::Result<()> {
             .route("/", web::get().to(home))
             .route("/health", web::get().to(health))
             .route("/auth/login", web::get().to(auth_login))
-            .route("/auth/status", web::get().to(auth_status))
+            .route("/auth/callback", web::get().to(auth_callback))
             .route("/auth/logout", web::get().to(auth_logout))
     })
     .bind(format!("0.0.0.0:{}", port))?

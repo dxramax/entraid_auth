@@ -1,7 +1,12 @@
 #!/bin/bash
+set -e
 
-# Set the port from environment variable or default to 8080
+echo "🚀 Starting PrimeGate Auth Portal - Pure Rust Edition"
+
+# Set environment variables with defaults
 export PORT=${PORT:-8080}
+export RUST_LOG=${RUST_LOG:-info}
 
-# Update the application to listen on the correct port
-./login-app
+# Start the Rust application
+echo "🦀 Launching Rust authentication portal on port $PORT"
+exec ./primegate-auth-portal
