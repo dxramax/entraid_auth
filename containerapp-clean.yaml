@@ -32,6 +32,7 @@ properties:
         oauth2 = "4.4"
         env_logger = "0.10"
         log = "0.4"
+        base64 = "0.22"
         EOF
         
         # Create main.rs with clean interface
@@ -55,6 +56,8 @@ properties:
             email: String,
             #[serde(rename = "id")]
             id: String,
+            #[serde(skip)]
+            photo_url: Option<String>,
         }
         
         #[derive(Debug, Deserialize)]
@@ -95,6 +98,11 @@ properties:
                     background: #e8f5e8; padding: 30px; border-radius: 12px; 
                     margin: 30px 0; border-left: 6px solid #28a745;
                 }}
+                .profile-image {{
+                    width: 80px; height: 80px; border-radius: 50%; 
+                    margin: 0 auto 20px; display: block;
+                    border: 4px solid #28a745; object-fit: cover;
+                }}
                 .welcome-text {{ font-size: 1.5em; color: #155724; margin-bottom: 20px; }}
                 .user-details {{ text-align: left; margin: 20px 0; }}
                 .user-details strong {{ color: #155724; }}
@@ -117,6 +125,7 @@ properties:
                 <div class="rust-badge">RUST POWERED</div>
                 
                 <div class="profile-section">
+                    {}
                     <div class="welcome-text">Welcome back, {}!</div>
                     <div class="user-details">
                         <p><strong>Display Name:</strong> {}</p>
@@ -135,6 +144,9 @@ properties:
         </body>
         </html>
                     "#, 
+                    user.photo_url.as_ref().map_or(String::new(), |url| 
+                        format!(r#"<img src="{}" class="profile-image" alt="Profile Photo" onerror="this.style.display='none'">"#, url)
+                    ),
                     user.name.split('@').next().unwrap_or(&user.name),
                     user.name,
                     user.email,
@@ -268,7 +280,12 @@ properties:
         
             let access_token = token.access_token().secret();
             match get_user_info(&data.http_client, access_token).await {
-                Ok(user_info) => {
+                Ok(mut user_info) => {
+                    // Try to get profile photo
+                    if let Ok(photo_url) = get_user_photo(&data.http_client, access_token).await {
+                        user_info.photo_url = Some(photo_url);
+                    }
+                    
                     session.insert("user", &user_info).unwrap();
                     session.insert("authenticated", true).unwrap();
                     
@@ -289,6 +306,25 @@ properties:
         
             let user_info = response.json::<UserInfo>().await?;
             Ok(user_info)
+        }
+        
+        async fn get_user_photo(client: &Client, access_token: &str) -> Result<String, reqwest::Error> {
+            // First check if user has a photo
+            let response = client
+                .get("https://graph.microsoft.com/v1.0/me/photo/$value")
+                .header("Authorization", format!("Bearer {}", access_token))
+                .send()
+                .await?;
+        
+            if response.status().is_success() {
+                let photo_bytes = response.bytes().await?;
+                use base64::Engine;
+                let base64_photo = base64::engine::general_purpose::STANDARD.encode(&photo_bytes);
+                Ok(format!("data:image/jpeg;base64,{}", base64_photo))
+            } else {
+                // Return a default avatar or empty string if no photo
+                Err(reqwest::Error::from(response.error_for_status().unwrap_err()))
+            }
         }
         
         async fn auth_logout(session: Session) -> Result<HttpResponse> {
