@@ -2,7 +2,7 @@ properties:
   template:
     containers:
     - name: primegate-auth-portal
-      image: rust:1.75-slim
+      image: rust:1.82-slim
       command:
       - /bin/bash
       args:
@@ -122,11 +122,10 @@ properties:
         </head>
         <body>
             <div class="container">
-                <h1>🛡️ PrimeGate Portal</h1>
-                <div class="rust-badge">🦀 100% RUST POWERED</div>
+                <h1>PrimeGate Portal</h1>
                 
                 <div class="profile-section">
-                    <div class="welcome-text">✅ Welcome back, {}!</div>
+                    <div class="welcome-text">Welcome back, {}!</div>
                     <div class="user-details">
                         <p><strong>Display Name:</strong> {}</p>
                         <p><strong>Email:</strong> {}</p>
@@ -134,11 +133,10 @@ properties:
                     </div>
                 </div>
                 
-                <a href="/auth/logout" class="button">🚪 Sign Out</a>
+                <a href="/auth/logout" class="button">Sign Out</a>
                 
                 <div style="margin-top: 30px; color: #666; font-size: 14px;">
-                    <p>🔐 Authenticated via Azure Entra ID</p>
-                    <p>🦀 Pure Rust Backend Authentication</p>
+                    <p>Authenticated via Azure Entra ID</p>
                 </div>
             </div>
         </body>
@@ -199,28 +197,19 @@ properties:
         <body>
             <div class="container">
                 <div class="header">
-                    <h1>🛡️ PrimeGate Portal</h1>
+                    <h1>PrimeGate Portal</h1>
                     <div>
-                        <span class="rust-badge">🦀 RUST POWERED</span>
-                        <span class="security-badge">🔒 SECURE AUTH</span>
+                        <span class="security-badge">SECURE AUTH</span>
                     </div>
                     <p>Enterprise-grade authentication with Azure Entra ID</p>
                 </div>
                 
                 <div class="login-section">
-                    <h2>🔐 Ready to Sign In</h2>
+                    <h2>Ready to Sign In</h2>
                     <p>Click below to authenticate with your Microsoft account</p>
-                    <a href="/auth/login" class="button">🔐 Sign In with Microsoft</a>
+                    <a href="/auth/login" class="button">Sign In with Microsoft</a>
                 </div>
                 
-                <div class="features">
-                    <h3>🛡️ Security Features</h3>
-                    <div class="feature-item">🔒 Pure Rust backend (no Node.js)</div>
-                    <div class="feature-item">🛡️ Server-side OAuth2 flow</div>
-                    <div class="feature-item">🔐 Azure Entra ID integration</div>
-                    <div class="feature-item">⚡ High-performance authentication</div>
-                    <div class="feature-item">🔑 Secure session management</div>
-                </div>
             </div>
         </body>
         </html>
