@@ -107,8 +107,8 @@ async fn home(session: Session) -> Result<HttpResponse> {
 </html>
             "#, 
             user.photo_url.as_ref().map_or(
-                r#"<div class="profile-image profile-placeholder">USER</div>"#.to_string(), 
-                |url| format!(r#"<img src="{}" class="profile-image" alt="Profile Photo" onerror="this.parentNode.innerHTML='<div class=\"profile-image profile-placeholder\">USER</div>'">"#, url)
+                r#"<div class="profile-image profile-placeholder">&#x1F464;</div>"#.to_string(), 
+                |url| format!(r#"<img src="{}" class="profile-image" alt="Profile Photo" onerror="this.parentNode.innerHTML='<div class=\"profile-image profile-placeholder\">&#x1F464;</div>'">"#, url)
             ),
             user.name.split('@').next().unwrap_or(&user.name),
             user.name,
