@@ -17,7 +17,7 @@ struct UserInfo {
     email: String,
     #[serde(rename = "id")]
     id: String,
-    #[serde(rename = "profilePhotoUrl")]
+    #[serde(skip)]
     photo_url: Option<String>,
 }
 
@@ -42,7 +42,7 @@ async fn home(session: Session) -> Result<HttpResponse> {
 <!DOCTYPE html>
 <html>
 <head>
-    <title>🔐 PrimeGate Portal - Authenticated</title>
+    <title>PrimeGate Portal - Authenticated</title>
     <style>
         body {{ 
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
@@ -62,7 +62,7 @@ async fn home(session: Session) -> Result<HttpResponse> {
         .profile-image {{
             width: 80px; height: 80px; border-radius: 50%; 
             margin: 0 auto 20px; display: block;
-            border: 4px solid #28a745;
+            border: 4px solid #28a745; object-fit: cover;
         }}
         .welcome-text {{ font-size: 1.5em; color: #155724; margin-bottom: 20px; }}
         .user-details {{ text-align: left; margin: 20px 0; }}
@@ -73,7 +73,6 @@ async fn home(session: Session) -> Result<HttpResponse> {
             border-radius: 8px; display: inline-block; margin: 20px 0;
             font-weight: 600; font-size: 16px; transition: all 0.3s ease;
         }}
-        .button:hover {{ transform: translateY(-2px); box-shadow: 0 8px 25px rgba(220, 53, 69, 0.3); }}
         .rust-badge {{ 
             background: linear-gradient(45deg, #ce422b, #ff6b35);
             color: white; padding: 8px 20px; border-radius: 25px; 
@@ -83,12 +82,12 @@ async fn home(session: Session) -> Result<HttpResponse> {
 </head>
 <body>
     <div class="container">
-        <h1>🛡️ PrimeGate Portal</h1>
-        <div class="rust-badge">🦀 100% RUST POWERED</div>
+        <h1>PrimeGate Portal</h1>
+        <div class="rust-badge">RUST POWERED</div>
         
         <div class="profile-section">
             {}
-            <div class="welcome-text">✅ Welcome back, {}!</div>
+            <div class="welcome-text">Welcome back, {}!</div>
             <div class="user-details">
                 <p><strong>Display Name:</strong> {}</p>
                 <p><strong>Email:</strong> {}</p>
@@ -96,11 +95,11 @@ async fn home(session: Session) -> Result<HttpResponse> {
             </div>
         </div>
         
-        <a href="/auth/logout" class="button">🚪 Sign Out</a>
+        <a href="/auth/logout" class="button">Sign Out</a>
         
         <div style="margin-top: 30px; color: #666; font-size: 14px;">
-            <p>🔐 Authenticated via Azure Entra ID</p>
-            <p>🦀 Pure Rust Backend Authentication</p>
+            <p>Authenticated via Azure Entra ID</p>
+            <p>Pure Rust Backend Authentication</p>
         </div>
     </div>
 </body>
@@ -119,7 +118,7 @@ async fn home(session: Session) -> Result<HttpResponse> {
 <!DOCTYPE html>
 <html>
 <head>
-    <title>🔐 PrimeGate Portal</title>
+    <title>PrimeGate Portal</title>
     <style>
         body { 
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
@@ -154,7 +153,6 @@ async fn home(session: Session) -> Result<HttpResponse> {
             border-radius: 8px; display: inline-block; margin: 20px 0;
             font-weight: 600; font-size: 18px; transition: all 0.3s ease;
         }
-        .button:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(16, 110, 190, 0.3); }
         .features {
             background: #e8f4f8; padding: 20px; border-radius: 8px; margin: 20px 0;
         }
@@ -164,27 +162,27 @@ async fn home(session: Session) -> Result<HttpResponse> {
 <body>
     <div class="container">
         <div class="header">
-            <h1>🛡️ PrimeGate Portal</h1>
+            <h1>PrimeGate Portal</h1>
             <div>
-                <span class="rust-badge">🦀 RUST POWERED</span>
-                <span class="security-badge">🔒 SECURE AUTH</span>
+                <span class="rust-badge">RUST POWERED</span>
+                <span class="security-badge">SECURE AUTH</span>
             </div>
             <p>Enterprise-grade authentication with Azure Entra ID</p>
         </div>
         
         <div class="login-section">
-            <h2>🔐 Ready to Sign In</h2>
+            <h2>Ready to Sign In</h2>
             <p>Click below to authenticate with your Microsoft account</p>
-            <a href="/auth/login" class="button">🔐 Sign In with Microsoft</a>
+            <a href="/auth/login" class="button">Sign In with Microsoft</a>
         </div>
         
         <div class="features">
-            <h3>🛡️ Security Features</h3>
-            <div class="feature-item">🔒 Pure Rust backend (no Node.js)</div>
-            <div class="feature-item">🛡️ Server-side OAuth2 flow</div>
-            <div class="feature-item">🔐 Azure Entra ID integration</div>
-            <div class="feature-item">⚡ High-performance authentication</div>
-            <div class="feature-item">🔑 Secure session management</div>
+            <h3>Security Features</h3>
+            <div class="feature-item">Pure Rust backend (no Node.js)</div>
+            <div class="feature-item">Server-side OAuth2 flow</div>
+            <div class="feature-item">Azure Entra ID integration</div>
+            <div class="feature-item">High-performance authentication</div>
+            <div class="feature-item">Secure session management</div>
         </div>
     </div>
 </body>
