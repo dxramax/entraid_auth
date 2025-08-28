@@ -1,19 +1,11 @@
 {
-  "name": "azure-entra-login-app",
+  "name": "primegate-auth-portal",
   "version": "1.0.0",
-  "description": "Simple Azure Entra ID Login Application",
-  "main": "server.js",
-  "scripts": {
-    "start": "node server.js",
-    "postinstall": "echo 'Node.js Azure Entra ID app installed successfully'"
+  "description": "PrimeGate Authentication Portal - Azure Entra ID with Rust",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dxramax/entraid_auth.git"
   },
-  "dependencies": {
-    "express": "^4.18.2",
-    "express-session": "^1.17.3",
-    "passport": "^0.6.0",
-    "passport-azure-ad": "^4.3.5"
-  },
-  "engines": {
-    "node": ">=18.0.0"
-  }
+  "keywords": ["azure", "authentication", "rust", "oauth2", "entra-id"],
+  "license": "MIT"
 }
