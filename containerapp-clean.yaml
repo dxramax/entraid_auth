@@ -106,7 +106,7 @@ properties:
                 .profile-placeholder {{
                     background: #f8f9fa; color: #6c757d;
                     display: flex; align-items: center; justify-content: center;
-                    font-size: 32px; text-align: center;
+                    font-size: 14px; font-weight: 600; text-align: center;
                 }}
                 .welcome-text {{ font-size: 1.5em; color: #155724; margin-bottom: 20px; }}
                 .user-details {{ text-align: left; margin: 20px 0; }}
@@ -127,7 +127,6 @@ properties:
         <body>
             <div class="container">
                 <h1>PrimeGate Portal</h1>
-                <div class="rust-badge">RUST POWERED</div>
                 
                 <div class="profile-section">
                     {}
@@ -141,17 +140,13 @@ properties:
                 
                 <a href="/auth/logout" class="button">Sign Out</a>
                 
-                <div style="margin-top: 30px; color: #666; font-size: 14px;">
-                    <p>Authenticated via Azure Entra ID</p>
-                    <p>Pure Rust Backend Authentication</p>
-                </div>
             </div>
         </body>
         </html>
                     "#, 
                     user.photo_url.as_ref().map_or(
-                        r#"<div class="profile-image profile-placeholder">👤</div>"#.to_string(), 
-                        |url| format!(r#"<img src="{}" class="profile-image" alt="Profile Photo" onerror="this.parentNode.innerHTML='<div class=\"profile-image profile-placeholder\">👤</div>'">"#, url)
+                        r#"<div class="profile-image profile-placeholder">USER</div>"#.to_string(), 
+                        |url| format!(r#"<img src="{}" class="profile-image" alt="Profile Photo" onerror="this.parentNode.innerHTML='<div class=\"profile-image profile-placeholder\">USER</div>'">"#, url)
                     ),
                     user.name.split('@').next().unwrap_or(&user.name),
                     user.name,
