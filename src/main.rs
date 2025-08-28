@@ -64,6 +64,11 @@ async fn home(session: Session) -> Result<HttpResponse> {
             margin: 0 auto 20px; display: block;
             border: 4px solid #28a745; object-fit: cover;
         }}
+        .profile-placeholder {{
+            background: #f8f9fa; color: #6c757d;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 32px; text-align: center;
+        }}
         .welcome-text {{ font-size: 1.5em; color: #155724; margin-bottom: 20px; }}
         .user-details {{ text-align: left; margin: 20px 0; }}
         .user-details strong {{ color: #155724; }}
@@ -105,8 +110,9 @@ async fn home(session: Session) -> Result<HttpResponse> {
 </body>
 </html>
             "#, 
-            user.photo_url.as_ref().map_or(String::new(), |url| 
-                format!(r#"<img src="{}" class="profile-image" alt="Profile Photo" onerror="this.style.display='none'">"#, url)
+            user.photo_url.as_ref().map_or(
+                r#"<div class="profile-image profile-placeholder">👤</div>"#.to_string(), 
+                |url| format!(r#"<img src="{}" class="profile-image" alt="Profile Photo" onerror="this.parentNode.innerHTML='<div class=\"profile-image profile-placeholder\">👤</div>'">"#, url)
             ),
             user.name.split('@').next().unwrap_or(&user.name),
             user.name,
